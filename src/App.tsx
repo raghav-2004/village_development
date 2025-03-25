@@ -8,6 +8,9 @@ import { Feedback } from './pages/Feedback';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AuthProvider } from './contexts/AuthContext';
+import { Reports } from './pages/Reports';
+import { RequireAuth } from './components/RequireAuth';
+import { ReportDetail } from './pages/ReportDetail';
 
 function App() {
   return (
@@ -24,6 +27,16 @@ function App() {
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/reports" element={
+                <RequireAuth>
+                  <Reports />
+                </RequireAuth>
+              } />
+              <Route path="/reports/:reportId" element={
+                <RequireAuth>
+                  <ReportDetail />
+                </RequireAuth>
+              } />
             </Routes>
           </main>
         </div>

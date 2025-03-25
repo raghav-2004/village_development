@@ -170,4 +170,51 @@ export const analyticsAPI = {
     });
     return handleResponse(response);
   }
-}; 
+};
+
+// Reports API functions
+export const reportsAPI = {
+  generateReport: async (villageId: string, recommendationData: any, feedbackIds?: string[]) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/reports/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ villageId, recommendationData, feedbackIds }),
+    });
+    return handleResponse(response);
+  },
+  
+  sendReport: async (reportId: string) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/reports/send/${reportId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return handleResponse(response);
+  },
+  
+  getReports: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/reports`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return handleResponse(response);
+  },
+  
+  getReportById: async (reportId: string) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return handleResponse(response);
+  },
+} 

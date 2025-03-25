@@ -71,7 +71,7 @@ export function MapView() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Top section with title */}
       <div className="bg-green-600 text-white p-4">
-        <h1 className="text-2xl font-bold">Digital Land Survey - Map View</h1>
+        <h1 className="text-2xl font-bold">gramMITRA - Map View</h1>
       </div>
       
       {/* Main content area */}
