@@ -11,10 +11,10 @@
 # Proxy API requests to your backend during development
 [[redirects]]
   from = "/api/*"
-  to = "http://localhost:5000/api/:splat"
+  to = "https://digital-land-survey-backend.onrender.com/api/:splat"
   status = 200
   force = true
   conditions = {Role = ["admin", "owner"]}
 
 [context.production.environment]
-  VITE_API_URL = "https://your-future-backend-api.onrender.com/api" 
+  VITE_API_URL = "https://digital-land-survey-backend.onrender.com/api" 

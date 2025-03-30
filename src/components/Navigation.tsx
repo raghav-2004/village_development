@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MapPin, Users, BarChart2, MessageSquare, LogIn, FileText } from 'lucide-react';
+import { MapPin, Users, BarChart2, MessageSquare, LogOut, FileText, User } from 'lucide-react';
 
 export function Navigation() {
   const location = useLocation();
@@ -39,10 +39,12 @@ export function Navigation() {
               <FileText className="h-5 w-5 mr-1" />
               <span>Reports</span>
             </Link>
-            <Link to="/login" className="flex items-center px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700">
-              <LogIn className="h-5 w-5 mr-1" />
-              <span>Login</span>
-            </Link>
+            
+            {/* Always show user as logged in for demo mode */}
+            <div className="flex items-center text-gray-700 px-3 py-2">
+              <User className="h-5 w-5 text-green-600 mr-1" />
+              <span className="font-medium">Demo User</span>
+            </div>
           </div>
         </div>
       </div>

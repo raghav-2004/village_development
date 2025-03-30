@@ -87,7 +87,13 @@ export function LeafletMap({ villages, onVillageSelect, onLocationSelect }: Leaf
   const handleMapClick = (e: any) => {
     const { lat, lng } = e.latlng;
     
-    // Add a marker at the clicked location
+    // Clear any existing search marker
+    if (searchMarkerRef.current) {
+      mapRef.current.removeLayer(searchMarkerRef.current);
+      searchMarkerRef.current = null;
+    }
+    
+    // Add or update marker at the clicked location
     if (locationMarkerRef.current) {
       mapRef.current.removeLayer(locationMarkerRef.current);
     }
@@ -108,36 +114,84 @@ export function LeafletMap({ villages, onVillageSelect, onLocationSelect }: Leaf
       })
     }).addTo(mapRef.current);
     
-    // Call the parent's callback with the selected location
-    onLocationSelect({ lat, lng });
+    // Get the location name through reverse geocoding
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+      .then(response => response.json())
+      .then(data => {
+        const locationName = data.display_name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        
+        // Update the marker with the location name
+        if (locationMarkerRef.current) {
+          locationMarkerRef.current.bindPopup(locationName).openPopup();
+        }
+        
+        // Call the parent's callback with the selected location and name
+        onLocationSelect({ 
+          lat, 
+          lng, 
+          displayName: locationName 
+        });
+      })
+      .catch(error => {
+        console.error("Error reverse geocoding clicked location:", error);
+        
+        // Use coordinates as fallback name
+        const fallbackName = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        
+        if (locationMarkerRef.current) {
+          locationMarkerRef.current.bindPopup(fallbackName).openPopup();
+        }
+        
+        // Call the parent's callback with fallback name
+        onLocationSelect({ lat, lng, displayName: fallbackName });
+      });
   };
   
   const searchLocation = () => {
     if (!searchInput.trim() || !mapRef.current) return;
     
+    // Show loading indicator
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+    loadingToast.textContent = 'Searching location...';
+    document.body.appendChild(loadingToast);
+    
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchInput)}`)
       .then(response => response.json())
       .then(data => {
+        // Remove loading indicator
+        if (document.body.contains(loadingToast)) {
+          document.body.removeChild(loadingToast);
+        }
+        
         if (data.length === 0) {
-          alert("Location not found.");
+          alert("Location not found. Please try a different search term.");
           return;
         }
         
-        const { lat, lon } = data[0];
+        const { lat, lon, display_name } = data[0];
+        const parsedLat = parseFloat(lat);
+        const parsedLon = parseFloat(lon);
         
         // Remove existing search marker if any
         if (searchMarkerRef.current) {
           mapRef.current.removeLayer(searchMarkerRef.current);
         }
         
+        // Remove existing location marker if any
+        if (locationMarkerRef.current) {
+          mapRef.current.removeLayer(locationMarkerRef.current);
+        }
+        
         // Add new marker and move map
-        searchMarkerRef.current = window.L.marker([lat, lon], {
+        searchMarkerRef.current = window.L.marker([parsedLat, parsedLon], {
           icon: window.L.divIcon({
             className: 'search-marker',
             html: `
               <div class="flex items-center justify-center w-8 h-8 rounded-full bg-green-600 text-white shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="h-5 w-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
               </div>
             `,
@@ -146,17 +200,39 @@ export function LeafletMap({ villages, onVillageSelect, onLocationSelect }: Leaf
           })
         })
           .addTo(mapRef.current)
-          .bindPopup(`${searchInput}`)
+          .bindPopup(display_name || searchInput)
           .openPopup();
         
-        mapRef.current.setView([lat, lon], 12);
+        mapRef.current.setView([parsedLat, parsedLon], 12);
+        
+        // Show success notification
+        const successToast = document.createElement('div');
+        successToast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+        successToast.textContent = 'Location found!';
+        document.body.appendChild(successToast);
+        
+        // Remove success notification after 2 seconds
+        setTimeout(() => {
+          if (document.body.contains(successToast)) {
+            document.body.removeChild(successToast);
+          }
+        }, 2000);
         
         // Call the parent's callback with the searched location
-        onLocationSelect({ lat: parseFloat(lat), lng: parseFloat(lon), displayName: searchInput });
+        onLocationSelect({ 
+          lat: parsedLat, 
+          lng: parsedLon, 
+          displayName: display_name || searchInput 
+        });
       })
       .catch(error => {
+        // Remove loading indicator
+        if (document.body.contains(loadingToast)) {
+          document.body.removeChild(loadingToast);
+        }
+        
         console.error("Error fetching location:", error);
-        alert("Error searching for location. Please try again.");
+        alert("Error searching for location. Please check your connection and try again.");
       });
   };
   
@@ -166,44 +242,147 @@ export function LeafletMap({ villages, onVillageSelect, onLocationSelect }: Leaf
       return;
     }
     
+    // Show loading indicator
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+    loadingToast.textContent = 'Getting your location...';
+    document.body.appendChild(loadingToast);
+    
+    // Define timeout handler to provide better user experience
+    const timeoutId = setTimeout(() => {
+      if (document.body.contains(loadingToast)) {
+        document.body.removeChild(loadingToast);
+        alert("Location request is taking longer than expected. Please try again or use search instead.");
+      }
+    }, 20000); // 20 seconds fallback timeout for UI feedback
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // Clear timeout
+        clearTimeout(timeoutId);
+        
+        // Remove loading indicator
+        if (document.body.contains(loadingToast)) {
+          document.body.removeChild(loadingToast);
+        }
+        
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         
-        // Remove existing search marker if any
-        if (searchMarkerRef.current) {
-          mapRef.current.removeLayer(searchMarkerRef.current);
-        }
-        
-        // Add marker at current location
-        searchMarkerRef.current = window.L.marker([lat, lon], {
-          icon: window.L.divIcon({
-            className: 'current-location-marker',
-            html: `
-              <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white shadow-md">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="h-5 w-5">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
-              </div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 32]
+        // Reverse geocode to get location name
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+          .then(response => response.json())
+          .then(data => {
+            const locationName = data.display_name || "Your Location";
+            
+            // Remove existing search marker if any
+            if (searchMarkerRef.current) {
+              mapRef.current.removeLayer(searchMarkerRef.current);
+            }
+            
+            // Remove existing location marker if any
+            if (locationMarkerRef.current) {
+              mapRef.current.removeLayer(locationMarkerRef.current);
+            }
+            
+            // Add marker at current location
+            searchMarkerRef.current = window.L.marker([lat, lon], {
+              icon: window.L.divIcon({
+                className: 'current-location-marker',
+                html: `
+                  <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="h-5 w-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                  </div>
+                `,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32]
+              })
+            })
+              .addTo(mapRef.current)
+              .bindPopup(locationName)
+              .openPopup();
+            
+            // Move map to current location
+            mapRef.current.setView([lat, lon], 14);
+            
+            // Call the parent's callback with the current location
+            onLocationSelect({ lat, lng: lon, displayName: locationName });
           })
-        })
-          .addTo(mapRef.current)
-          .bindPopup("Your Location")
-          .openPopup();
-        
-        // Move map to current location
-        mapRef.current.setView([lat, lon], 14);
-        
-        // Call the parent's callback with the current location
-        onLocationSelect({ lat, lng: lon, displayName: "Your Location" });
+          .catch(error => {
+            console.error("Error reverse geocoding:", error);
+            
+            // Still show the marker even if reverse geocoding fails
+            const fallbackName = "Your Location";
+            
+            // Add marker with fallback name
+            searchMarkerRef.current = window.L.marker([lat, lon], {
+              icon: window.L.divIcon({
+                className: 'current-location-marker',
+                html: `
+                  <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="h-5 w-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                  </div>
+                `,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32]
+              })
+            })
+              .addTo(mapRef.current)
+              .bindPopup(fallbackName)
+              .openPopup();
+            
+            mapRef.current.setView([lat, lon], 14);
+            onLocationSelect({ lat, lng: lon, displayName: fallbackName });
+          });
       },
       (error) => {
+        // Clear timeout
+        clearTimeout(timeoutId);
+        
+        // Remove loading indicator
+        if (document.body.contains(loadingToast)) {
+          document.body.removeChild(loadingToast);
+        }
+        
         console.error("Error getting location:", error);
-        alert("Unable to retrieve your location.");
+        let errorMessage = "Unable to retrieve your location.";
+        
+        // Provide more specific error messages
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access was denied. Please enable location services in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable. Please try again later.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "The request to get your location timed out. Please try using the search feature instead.";
+            break;
+        }
+        
+        // Show user-friendly error notification instead of alert
+        const errorToast = document.createElement('div');
+        errorToast.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+        errorToast.textContent = errorMessage;
+        document.body.appendChild(errorToast);
+        
+        // Remove error notification after 5 seconds
+        setTimeout(() => {
+          if (document.body.contains(errorToast)) {
+            document.body.removeChild(errorToast);
+          }
+        }, 5000);
+      },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 30000,  // 30 seconds timeout (increased from 10)
+        maximumAge: 0    // Don't use cached position
       }
     );
   };

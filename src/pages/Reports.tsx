@@ -1,35 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../lib/api';
-import { Mail, FileText, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
+import { Mail, FileText, CheckCircle, AlertCircle, Clock, Filter, Info, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { villages } from '../lib/mockData';
+import { communitySuggestionsDB, reportsDB, CommunitySuggestion } from '../lib/localDB';
+
+interface Report {
+  id: string;
+  villageId: string;
+  title: string;
+  createdAt: string;
+  status: 'draft' | 'sent' | 'read' | 'actioned';
+  recommendations: string[];
+  feedbackReferences: string[];
+  communitySuggestions: string[];
+  priority?: string;
+  sentDate?: string;
+  officialName?: string;
+  villageName?: string;
+}
 
 export function Reports() {
-  const [reports, setReports] = useState<any[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [suggestions, setSuggestions] = useState<CommunitySuggestion[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchReports();
+    fetchSuggestions();
   }, []);
 
-  const fetchReports = async () => {
+  const fetchReports = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await reportsAPI.getReports();
+      console.log("Fetching reports...");
       
-      if (response.success) {
-        setReports(response.reports || []);
-      } else {
-        setError('Failed to fetch reports');
-      }
+      const localReports = reportsDB.getAll();
+      console.log("Reports from local DB:", localReports);
+      
+      const formattedReports = localReports.map((report: any) => {
+        const village = villages.find(v => v.id === report.villageId);
+        return {
+          ...report,
+          villageName: village ? village.name : 'Unknown Village',
+          officialName: 'District Official',
+          priority: report.priority || 'medium',
+          sentDate: report.status === 'sent' ? report.createdAt : undefined,
+          communitySuggestions: report.communitySuggestions || []
+        };
+      });
+      
+      setReports(formattedReports);
     } catch (err) {
+      console.error("Error fetching reports:", err);
       setError('An error occurred while fetching reports');
-      console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSuggestions = () => {
+    try {
+      const allSuggestions = communitySuggestionsDB.getAll();
+      setSuggestions(allSuggestions);
+    } catch (err) {
+      console.error("Error fetching suggestions:", err);
     }
   };
 
@@ -40,21 +79,54 @@ export function Reports() {
   const handleSendReport = async (reportId: string) => {
     try {
       setLoading(true);
-      const response = await reportsAPI.sendReport(reportId);
+      console.log("Sending report:", reportId);
       
-      if (response.success) {
-        // Update report status in the list
+      const updatedReport = reportsDB.update(reportId, { status: 'sent', sentDate: new Date().toISOString().split('T')[0] });
+      
+      if (updatedReport) {
         setReports(reports.map(report => 
-          report.id === reportId ? { ...report, status: 'sent' } : report
+          report.id === reportId ? { ...report, status: 'sent', sentDate: new Date().toISOString().split('T')[0] } : report
         ));
       } else {
         setError('Failed to send report');
       }
     } catch (err) {
+      console.error("Error sending report:", err);
       setError('An error occurred while sending the report');
-      console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createReportWithSuggestions = () => {
+    try {
+      const approvedSuggestions = suggestions.filter(s => s.status === 'approved');
+      
+      if (approvedSuggestions.length === 0) {
+        setError('No approved community suggestions available for reporting');
+        return;
+      }
+      
+      const newReport = reportsDB.add({
+        villageId: 'v1',
+        title: `Community Feedback Report - ${new Date().toLocaleDateString()}`,
+        recommendations: [
+          'Based on community feedback, prioritize infrastructure improvements',
+          'Address environmental concerns raised by community members',
+          'Implement educational programs requested by the village'
+        ],
+        feedbackReferences: [],
+        communitySuggestions: approvedSuggestions.map(s => s.id),
+        priority: 'high',
+        status: 'draft'
+      });
+      
+      fetchReports();
+      
+      setError(null);
+    } catch (err) {
+      console.error("Error creating report:", err);
+      setError('Failed to create report with community suggestions');
     }
   };
 
@@ -63,31 +135,58 @@ export function Reports() {
     return report.status === filter;
   });
 
+  const getSuggestionCount = (report: Report) => {
+    return report.communitySuggestions?.length || 0;
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Official Reports</h1>
         
-        <div className="flex items-center">
-          <Filter size={16} className="mr-2 text-gray-600" />
-          <select
-            className="border rounded-md px-3 py-1.5 text-sm bg-white"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+        <div className="flex items-center space-x-4">
+          <button 
+            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700"
+            onClick={createReportWithSuggestions}
           >
-            <option value="all">All Reports</option>
-            <option value="draft">Drafts</option>
-            <option value="sent">Sent</option>
-            <option value="read">Read</option>
-            <option value="actioned">Actioned</option>
-          </select>
+            Generate Report from Community Suggestions
+          </button>
+          
+          <div className="flex items-center">
+            <Filter size={16} className="mr-2 text-gray-600" />
+            <select
+              className="border rounded-md px-3 py-1.5 text-sm bg-white"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              <option value="all">All Reports</option>
+              <option value="draft">Drafts</option>
+              <option value="sent">Sent</option>
+              <option value="read">Read</option>
+              <option value="actioned">Actioned</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-blue-50 border border-blue-100 rounded-md p-4 mb-6">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <Info className="h-5 w-5 text-blue-400" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">Community Feedback Integration</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Reports now can include community suggestions. Click "Generate Report from Community Suggestions" to create a new report that includes approved community feedback.
+            </p>
+          </div>
         </div>
       </div>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          <AlertCircle size={16} className="mr-2 inline" />
-          {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+          <AlertCircle size={16} className="mr-2" />
+          <span>{error}</span>
         </div>
       )}
       
@@ -101,7 +200,7 @@ export function Reports() {
           <h3 className="text-lg font-medium text-gray-900">No Reports Found</h3>
           <p className="text-gray-600 mt-1">
             {filter === 'all' 
-              ? 'No reports have been generated yet. Generate reports from village details.' 
+              ? 'No reports have been generated yet. Generate reports from village details or community suggestions.' 
               : `No ${filter} reports available.`}
           </p>
         </div>
@@ -119,23 +218,30 @@ export function Reports() {
                     report.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-green-100 text-green-800'
                   }`}>
-                    {report.priority.toUpperCase()}
+                    {(report.priority || 'MEDIUM').toUpperCase()}
                   </span>
                 </div>
                 
                 <p className="text-sm text-gray-500 mb-2">
-                  Village: <span className="font-medium">{report.villageName}</span>
+                  Village: <span className="font-medium">{report.villageName || 'Unknown'}</span>
                 </p>
                 
                 <p className="text-sm text-gray-500 mb-3">
-                  Recipient: <span className="font-medium">{report.officialName}</span>
+                  Recipient: <span className="font-medium">{report.officialName || 'District Official'}</span>
                 </p>
+                
+                {getSuggestionCount(report) > 0 && (
+                  <div className="flex items-center text-sm text-blue-600 mb-3">
+                    <MessageSquare size={14} className="mr-1" />
+                    <span>{getSuggestionCount(report)} Community Suggestions</span>
+                  </div>
+                )}
                 
                 <div className="flex items-center text-xs text-gray-500 mb-3">
                   <Clock size={14} className="mr-1" />
                   <span>
                     {report.status === 'sent' 
-                      ? `Sent: ${new Date(report.sentDate).toLocaleDateString()}`
+                      ? `Sent: ${new Date(report.sentDate || report.createdAt).toLocaleDateString()}`
                       : `Created: ${new Date(report.createdAt).toLocaleDateString()}`
                     }
                   </span>

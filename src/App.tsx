@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { MapView } from './pages/MapView';
@@ -9,13 +9,21 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AuthProvider } from './contexts/AuthContext';
 import { Reports } from './pages/Reports';
-import { RequireAuth } from './components/RequireAuth';
 import { ReportDetail } from './pages/ReportDetail';
+import { autoLogin } from './lib/mockAPI';
+
+// Perform auth initialization immediately on module load
+// This ensures authentication is set before rendering begins
+const authData = autoLogin();
+localStorage.setItem('token', authData.token);
+localStorage.setItem('user', JSON.stringify(authData.user));
+console.log('Authentication initialized at app startup');
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      {/* Use HashRouter with no basename for maximum stability */}
+      <HashRouter>
         <div className="min-h-screen bg-gray-50">
           <Navigation />
           <main>
@@ -27,20 +35,12 @@ function App() {
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/reports" element={
-                <RequireAuth>
-                  <Reports />
-                </RequireAuth>
-              } />
-              <Route path="/reports/:reportId" element={
-                <RequireAuth>
-                  <ReportDetail />
-                </RequireAuth>
-              } />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/:reportId" element={<ReportDetail />} />
             </Routes>
           </main>
         </div>
-      </Router>
+      </HashRouter>
     </AuthProvider>
   );
 }

@@ -1,7 +1,18 @@
 import { Village } from './mockData';
+import { 
+  mockAuthAPI, 
+  mockVillagesAPI, 
+  mockFeedbackAPI, 
+  mockCommunityAPI, 
+  mockAnalyticsAPI, 
+  mockReportsAPI 
+} from './mockAPI';
 
 // Use environment variable for API base URL if available, otherwise fallback to localhost
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Enable mock API for development
+const USE_MOCK_API = true;
 
 // Helper function to handle API responses
 const handleResponse = async (response: Response) => {
@@ -13,7 +24,7 @@ const handleResponse = async (response: Response) => {
 };
 
 // Auth API functions
-export const authAPI = {
+export const authAPI = USE_MOCK_API ? mockAuthAPI : {
   login: async (email: string, password: string) => {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -49,7 +60,7 @@ export const authAPI = {
 };
 
 // Villages API functions
-export const villagesAPI = {
+export const villagesAPI = USE_MOCK_API ? mockVillagesAPI : {
   getAll: async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/villages`, {
@@ -85,7 +96,7 @@ export const villagesAPI = {
 };
 
 // Feedback API functions
-export const feedbackAPI = {
+export const feedbackAPI = USE_MOCK_API ? mockFeedbackAPI : {
   getAll: async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/feedback`, {
@@ -111,7 +122,7 @@ export const feedbackAPI = {
 };
 
 // Community suggestions API functions
-export const communityAPI = {
+export const communityAPI = USE_MOCK_API ? mockCommunityAPI : {
   getSuggestions: async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/community`, {
@@ -150,7 +161,7 @@ export const communityAPI = {
 };
 
 // Analytics API functions
-export const analyticsAPI = {
+export const analyticsAPI = USE_MOCK_API ? mockAnalyticsAPI : {
   getLandUseData: async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/analytics/land-use`, {
@@ -173,7 +184,7 @@ export const analyticsAPI = {
 };
 
 // Reports API functions
-export const reportsAPI = {
+export const reportsAPI = USE_MOCK_API ? mockReportsAPI : {
   generateReport: async (villageId: string, recommendationData: any, feedbackIds?: string[]) => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/reports/generate`, {
@@ -217,4 +228,4 @@ export const reportsAPI = {
     });
     return handleResponse(response);
   },
-} 
+}; 

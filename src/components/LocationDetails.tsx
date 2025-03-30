@@ -27,6 +27,24 @@ interface LocationData {
     humidity?: number;
     rainfall?: number;
     soilMoisture?: number;
+    airQuality?: {
+      aqi: number;
+      pollutants: {
+        pm25: number;
+        pm10: number;
+        ozone: number;
+      }
+    };
+    biodiversity?: {
+      floraSpecies: number;
+      faunaSpecies: number;
+      endangeredSpecies: number;
+    };
+    waterQuality?: {
+      ph: number;
+      turbidity: number;
+      dissolvedOxygen: number;
+    };
   };
   recommendations?: {
     crops: string[];
@@ -81,16 +99,38 @@ export function LocationDetails({ location, onClose, embedded = false }: Locatio
     try {
       const data = await villagesAPI.getEnvironmentalData(lat, lng);
       
-      // Generate AI recommendations based on environmental data
-      const recommendations = generateRecommendations(data);
-      
+      // Set the environmental data including temperature, humidity, rainfall, and soil moisture
       setLocationData(prev => ({
         ...prev,
-        environmentalData: data,
-        recommendations
+        environmentalData: {
+          temperature: data.temperature,
+          humidity: data.humidity,
+          rainfall: data.rainfall,
+          soilMoisture: data.soilMoisture,
+          ...data // Include all other data as well
+        },
+        recommendations: generateRecommendations(data)
       }));
+      
+      console.log("Environmental data loaded:", data);
     } catch (error) {
       console.error("Error fetching environmental data:", error);
+      // Provide fallback values if API fails
+      setLocationData(prev => ({
+        ...prev,
+        environmentalData: {
+          temperature: 26,
+          humidity: 65,
+          rainfall: 900,
+          soilMoisture: 30
+        },
+        recommendations: generateRecommendations({
+          temperature: 26,
+          humidity: 65,
+          rainfall: 900,
+          soilMoisture: 30
+        })
+      }));
     }
   };
 
@@ -249,25 +289,41 @@ export function LocationDetails({ location, onClose, embedded = false }: Locatio
             {locationData.environmentalData && (
               <div>
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
-                  <Wind className="mr-2 text-green-600" size={20} />
+                  <Thermometer className="w-5 h-5 mr-1 text-green-600" />
                   Environmental Conditions
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Temperature</span>
-                    <p className="font-semibold">{locationData.environmentalData.temperature}°C</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.temperature !== undefined 
+                        ? `${locationData.environmentalData.temperature.toFixed(1)}°C` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Humidity</span>
-                    <p className="font-semibold">{locationData.environmentalData.humidity}%</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.humidity !== undefined 
+                        ? `${locationData.environmentalData.humidity.toFixed(1)}%` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Annual Rainfall</span>
-                    <p className="font-semibold">{locationData.environmentalData.rainfall} mm/year</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.rainfall !== undefined 
+                        ? `${locationData.environmentalData.rainfall.toFixed(0)} mm` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Soil Moisture</span>
-                    <p className="font-semibold">{locationData.environmentalData.soilMoisture}%</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.soilMoisture !== undefined 
+                        ? `${locationData.environmentalData.soilMoisture.toFixed(1)}%` 
+                        : "N/A"}
+                    </p>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
@@ -418,25 +474,41 @@ export function LocationDetails({ location, onClose, embedded = false }: Locatio
             {locationData.environmentalData && (
               <div>
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
-                  <Wind className="mr-2 text-green-600" size={20} />
+                  <Thermometer className="w-5 h-5 mr-1 text-green-600" />
                   Environmental Conditions
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Temperature</span>
-                    <p className="font-semibold">{locationData.environmentalData.temperature}°C</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.temperature !== undefined 
+                        ? `${locationData.environmentalData.temperature.toFixed(1)}°C` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Humidity</span>
-                    <p className="font-semibold">{locationData.environmentalData.humidity}%</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.humidity !== undefined 
+                        ? `${locationData.environmentalData.humidity.toFixed(1)}%` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Annual Rainfall</span>
-                    <p className="font-semibold">{locationData.environmentalData.rainfall} mm/year</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.rainfall !== undefined 
+                        ? `${locationData.environmentalData.rainfall.toFixed(0)} mm` 
+                        : "N/A"}
+                    </p>
                   </div>
                   <div className="bg-gray-50 p-2 rounded">
                     <span className="text-sm text-gray-500">Soil Moisture</span>
-                    <p className="font-semibold">{locationData.environmentalData.soilMoisture}%</p>
+                    <p className="font-semibold">
+                      {locationData.environmentalData.soilMoisture !== undefined 
+                        ? `${locationData.environmentalData.soilMoisture.toFixed(1)}%` 
+                        : "N/A"}
+                    </p>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">

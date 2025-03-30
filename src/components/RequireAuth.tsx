@@ -1,18 +1,15 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import React from 'react';
+import { autoLogin } from '../lib/mockAPI';
 
 interface RequireAuthProps {
   children: JSX.Element;
 }
 
+// Simplified version that always allows access
 export function RequireAuth({ children }: RequireAuthProps) {
-  const { user } = useAuth();
-  const location = useLocation();
+  // Always ensure a user is set for demo mode
+  autoLogin();
   
-  if (!user) {
-    // Redirect to login page but save the current location they were trying to go to
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-  
+  // Always render children without any auth checks
   return children;
 } 
